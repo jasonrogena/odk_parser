@@ -14,6 +14,9 @@ class Parser {
    private $imagesDir;
    private $downloadDir;
    private $sessionID;
+   private $xmlString;
+   private $xmlValues;
+   private $rootDirURI;
    
    public function __construct() {
       //load settings
@@ -37,9 +40,13 @@ class Parser {
       }
       $this->imagesDir = $this->ROOT.'download/'.$this->sessionID.'/images';
       $this->downloadDir = $this->ROOT.'download/'.$this->sessionID;
+      $this->xmlValues = array();
+      
+      $this->rootDirURI = "/~jason/ilri/ODKParser/";
       
       //parse json String
       $this->parseJson();
+      $this->loadXML();
       
       //process all responses
       $mainSheetKey = "main_sheet";
@@ -53,11 +60,15 @@ class Parser {
          mkdir($this->downloadDir,0777,true);
       }
       $objWriter = new PHPExcel_Writer_Excel2007($this->phpExcel);
-      $objWriter->save($this->downloadDir.'/parsed.xlsx');
+      $objWriter->save($this->downloadDir.'/'.$_POST['fileName'].'.xlsx');
       
       //zip parsed files
-      $this->zipParsedItems($this->downloadDir, $this->ROOT.'download'.'/'.$this->sessionID.'.zip');
+      $zipName = 'download/'.$this->sessionID.'.zip';
+      $this->zipParsedItems($this->downloadDir, $this->ROOT.$zipName);
       $this->deleteDir($this->downloadDir);
+      
+      //send zip file to specified email
+      $this->sendZipURL($zipName);
    }
    
    private function loadSettings() {
@@ -68,12 +79,11 @@ class Parser {
    }
    
    private function setExcelMetaData() {
-      //TODO: get metadata from POST
-      $this->phpExcel->getProperties()->setCreator("Jason Rogena");
-      $this->phpExcel->getProperties()->setLastModifiedBy("Jason Rogena");
-      $this->phpExcel->getProperties()->setTitle("Test");
-      $this->phpExcel->getProperties()->setSubject("Testing");
-      $this->phpExcel->getProperties()->setDescription("Test by Jason Rogena");
+      $this->phpExcel->getProperties()->setCreator($_POST['creator']);
+      $this->phpExcel->getProperties()->setLastModifiedBy($_POST['creator']);
+      $this->phpExcel->getProperties()->setTitle($_POST['fileName']);
+      $this->phpExcel->getProperties()->setSubject("Created using ODK Parser");
+      $this->phpExcel->getProperties()->setDescription("This Excel file has been generated using ODK Parser that utilizes the PHPExcel library on PHP. ODK Parse was created by Jason Rogena (j.rogena@cgiar.org)");
    }
    
    private function getColumnName($parentKey, $key){//a maximum of 676 (26*26) columns
@@ -179,7 +189,7 @@ class Parser {
 
                if (!is_array($values[$index])) {
                   echo 'value of '.$keys[$index].' is '.$values[$index].'<br/>';
-                  //TODO: download image if is url
+                  
                   if(filter_var($values[$index], FILTER_VALIDATE_URL)) {
                      $values[$index] = $this->downloadImage($values[$index]);
                   }
@@ -187,7 +197,7 @@ class Parser {
                   if($values[$index]== "") {
                      $values[$index] = "NULL";
                   }
-                  $this->phpExcel->getActiveSheet()->setCellValue($cellName, $values[$index]);
+                  $this->phpExcel->getActiveSheet()->setCellValue($cellName, $this->convertKeyToValue($values[$index]));
                } 
                else {//if values is an array
                   if (sizeof($values[$index] > 0)) {
@@ -199,7 +209,7 @@ class Parser {
                   }
                   else {
                      echo 'value of '.$keys[$index].' is an array but is empty<br/>';
-                     $this->phpExcel->getActiveSheet()->setCellValue($cellName, "");
+                     $this->phpExcel->getActiveSheet()->setCellValue($cellName, "NULL");
                   }
                }
                //$this->phpExcel->getActiveSheet()->getStyle($cellName)->getAlignment()->setWrapText(true);
@@ -227,7 +237,7 @@ class Parser {
          }
          
          if ($columnName != FALSE) {
-            //TODO: download image if is url
+            
             if(filter_var($jsonObject, FILTER_VALIDATE_URL)) {
                $jsonObject = $this->downloadImage($jsonObject);
             }
@@ -238,7 +248,7 @@ class Parser {
             
             $cellName = $columnName . $rowName;
             $this->phpExcel->setActiveSheetIndex($this->sheetIndexes[$parentKey]);
-            $this->phpExcel->getActiveSheet()->setCellValue($cellName, $jsonObject);
+            $this->phpExcel->getActiveSheet()->setCellValue($cellName, $this->convertKeyToValue($jsonObject));
          }
       }
       $this->nextRowName[$parentKey]++;
@@ -338,9 +348,58 @@ class Parser {
       rmdir($dirPath);
    }
    
+   private function convertKeyToValue($key) {
+      if(array_key_exists($key, $this->xmlValues)) {
+         return $this->xmlValues[$key];
+      }
+      else {
+         return $key;
+      }
+   }
+   
    private function parseJson() {
-      $jsonString = '[{"start_time":"2013-09-18T17:15:12.000+03","DeviceID":"356262054210980","user_name":"collector","ltdc_id":"collector","qr":"http://wac.450f.edgecastcdn.net/80450F/comicsalliance.com/files/2012/09/ron-wimberly---prince-of-cats---09.png","site":null,"cluster":null,"hh_id":null,"hh_head":null,"info_prov":"Thomas","cycle_no":12,"gps:Latitude":-1.2692566667,"gps:Longitude":36.7220366667,"gps:Altitude":1889.8000488281,"gps:Accuracy":4.4000000000,"ee":[{"id":"Test","aq_disp":"acq","dt":"2013-07-18","count":2,"md":"aq_pur","re":"aqr_imp","pr":25,"spr":null,"md":null,"re":null,"pr":null,"bpr":null,"dt_c":null,"dt_other":null,"hm_count":0,"hm":"yes"},{"id":"That","aq_disp":"acq","dt":"2013-06-18","count":6,"md":"aq_gft","re":"aqr_imp","pr":47000,"spr":null,"md":null,"re":null,"pr":null,"bpr":null,"dt_c":null,"dt_other":null,"hm_count":null,"hm":"no"}],"dl":[{"c_id":"Btr","c_dt":"2013-09-18","c_tc":"tc_pm","c_ec":"ec_hp","c_bd":"2013-08-18","c_nm":null,"c_br":["bn_jr","bn_ex.ot","bn_an"],"c_sx":"sex_m","c_wc":"mw_uncon","c_fm":"mf_bf","c_st":"cs_al","c_iu":"iu_rh","c_def":"def_bl","c_dp":null,"dt":null,"re":null,"s_nm":"Gem","s_bd":"2013-09-18","s_br":["bn_ay","bn_sh","bn_ng"],"d_nm":"Him","d_bd":"2012-08-18","d_br":["bn_ay","bn_sh","bn_ex.ot","bn_ng"]}],"bs":[{"id":"Hek","st":"ail","st_r":["rsc_cl"],"ex_dt":"2013-05-18","bn":"That","si":"Red","ss":"ss_av","bo":"Neighbor","cs":20000,"cb":"15000","is_sc":"yes","sc_r":"scr_uet"}],"hr":[{"id":"Join","t_dt":"2013-08-18","dis":"dc_ms","dr_c":11000,"pr_c":12000,"sp":"sp_cahw","tt":"tt_ht","c_st":"psc_rec"}],"ph":[{"id":"Bus","ac":"ac_vc","e_dt":"2013-08-18","c_st":"psc_dd","dr_c":12000,"pr_c":15000,"sp":"sp_wpa","cm":"Something"}],"ms":[{"by":"Buttress","wk":12,"sm":36,"pr_l":21,"is_bc":"yes","bc_r":"rbc_pp"}]},{"start_time":"2013-09-18T17:15:12.000+03","DeviceID":"356262054210980","user_name":"collector","ltdc_id":"collector","qr":"http://en.m.wikipedia.org","site":null,"cluster":null,"hh_id":null,"hh_head":null,"info_prov":"Thomas","cycle_no":12,"gps:Latitude":-1.2692566667,"gps:Longitude":36.7220366667,"gps:Altitude":1889.8000488281,"gps:Accuracy":4.4000000000,"ee":[{"id":"Test","aq_disp":"acq","dt":"2013-07-18","count":2,"md":"aq_pur","re":"aqr_imp","pr":25,"spr":null,"md":null,"re":null,"pr":null,"bpr":null,"dt_c":null,"dt_other":null,"hm_count":0,"hm":"yes"},{"id":"That","aq_disp":"acq","dt":"2013-06-18","count":6,"md":"aq_gft","re":"aqr_imp","pr":47000,"spr":null,"md":null,"re":null,"pr":null,"bpr":null,"dt_c":null,"dt_other":null,"hm_count":null,"hm":"no"}],"dl":[{"c_id":"Btr","c_dt":"2013-09-18","c_tc":"tc_pm","c_ec":"ec_hp","c_bd":"2013-08-18","c_nm":null,"c_br":["bn_jr","bn_ex.ot","bn_an"],"c_sx":"sex_m","c_wc":"mw_uncon","c_fm":"mf_bf","c_st":"cs_al","c_iu":"iu_rh","c_def":"def_bl","c_dp":null,"dt":null,"re":null,"s_nm":"Gem","s_bd":"2013-09-18","s_br":["bn_ay","bn_sh","bn_ng"],"d_nm":"Him","d_bd":"2012-08-18","d_br":["bn_ay","bn_sh","bn_ex.ot","bn_ng"]}],"bs":[{"id":"Hek","st":"ail","st_r":["rsc_cl"],"ex_dt":"2013-05-18","bn":"That","si":"Red","ss":"ss_av","bo":"Neighbor","cs":20000,"cb":"15000","is_sc":"yes","sc_r":"scr_uet"}],"hr":[{"id":"Join","t_dt":"2013-08-18","dis":"dc_ms","dr_c":11000,"pr_c":12000,"sp":"sp_cahw","tt":"tt_ht","c_st":"psc_rec"}],"ph":[{"id":"Bus","ac":"ac_vc","e_dt":"2013-08-18","c_st":"psc_dd","dr_c":12000,"pr_c":15000,"sp":"sp_wpa","cm":"Something"}],"ms":[{"by":"Buttress","wk":12,"sm":36,"pr_l":21,"is_bc":"yes","bc_r":"rbc_pp"}]}]'; //TODO: get jsonString from post
+      $jsonString = $_POST['jsonString'];
       $this->jsonObject = json_decode($jsonString, TRUE);
+      print_r($this->jsonObject);
+   }
+   
+   private function loadXML() {
+      //$this->xmlString = file_get_contents($this->ROOT . "animals.xml");
+      $this->xmlString = $_POST['xmlString'];
+      $subStrings = array();
+      $count = 0;
+      while (1 == 1) {
+         $pref = strpos($this->xmlString, "<text");
+         $suf = strpos($this->xmlString, "</text>") + 7;
+         if ($pref !== FALSE && $suf !== FALSE) {
+            $subStrings[$count] = substr($this->xmlString, $pref, ($suf - $pref));
+            $this->xmlString = substr_replace($this->xmlString, "", $pref, ($suf - $pref));
+            //get the id
+            $idPref = strpos($subStrings[$count], "id=");
+            $idSuf = strpos($subStrings[$count], "><value>");
+            $id = substr($subStrings[$count], $idPref + 4, ($idSuf - $idPref) - 5);
+
+            //get the value
+            $valuePref = strpos($subStrings[$count], "<value>");
+            $valueSuf = strpos($subStrings[$count], "</value>");
+            $value = substr($subStrings[$count], $valuePref + 7, ($valueSuf - $valuePref) - 7);
+
+            $this->xmlValues[$id] = $value;
+            $count++;
+         } 
+         else {
+            break;
+         }
+      }
+      print_r($this->xmlValues);
+   }
+   
+   private function sendZipURL($zipName) {
+      $url = "http://".$_SERVER['HTTP_HOST'].$this->rootDirURI.$zipName;
+      $emailSubject = "ODK Parser finished generating ".$_POST['fileName'];
+      $message = "Hi ".$_POST['creator'].",\nODK Parser has finished generating ".$_POST['fileName'].".xlsx. You can download the file along with its companion images as a zip file from the following link ".$url." . This is an auto-generated email, please do not reply to it.";
+      $headers = "From: noreply@cgiar.org";
+      mail($_POST['email'], $emailSubject, $message, $headers);
    }
 }
 
