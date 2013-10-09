@@ -5,7 +5,7 @@
 function Parse() {
    window.parse = this;
    
-   this.serverURL = "./modules/Parse.php";
+   this.serverURL = "./modules/mod_parse.php";
    
    this.name = $("#name").val();
    this.email = $("#email").val();
