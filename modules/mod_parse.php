@@ -180,7 +180,9 @@ class Parser {
       $this->logHandler->log(3, $this->TAG, 'creating a new sheet row in '.$parentKey);
       //check if sheet for parent key exists
       $sheetArrayKeys = array_keys($this->sheetIndexes);
+      $isNewSheet = FALSE;
       if(!in_array($parentKey, $sheetArrayKeys)) {
+         $isNewSheet = TRUE;
          //echo 'sheet for '.$parentKey.' does not exist<br/>';
          $this->logHandler->log(2, $this->TAG, 'sheet for '.$parentKey.' does not exist');
          //create sheet for parent key
@@ -189,7 +191,7 @@ class Parser {
          $this->sheetIndexes[$parentKey] = sizeof($this->sheetIndexes);
          //echo 'size of sheet indexes now '.sizeof($this->sheetIndexes)."<br/>";
          $this->logHandler->log(4, $this->TAG, 'size of sheet indexes now '.sizeof($this->sheetIndexes));
-         $this->nextRowName[$parentKey] = 1;
+         $this->nextRowName[$parentKey] = 2;
          $this->allColumnNames[$parentKey] = array();
          
          if(sizeof($this->sheetIndexes)>1){
@@ -237,6 +239,9 @@ class Parser {
          }
          $columnName = $this->getColumnName($parentKey, "Parent_Cell");
          if ($columnName != FALSE) {
+            if($isNewSheet === TRUE){
+               $this->phpExcel->getActiveSheet()->setCellValue($columnName."1", "Parent cell");
+            }
             $cellName = $columnName . $rowName;
             $this->phpExcel->getActiveSheet()->setCellValue($cellName, $parentCellName);
             $this->phpExcel->getActiveSheet()->getColumnDimension($columnName)->setAutoSize(true);
@@ -273,6 +278,10 @@ class Parser {
             if ($columnName != FALSE) {
                $cellName = $columnName . $rowName;
                $this->phpExcel->setActiveSheetIndex($this->sheetIndexes[$parentKey]);
+               
+               if($columnExisted === FALSE){
+                  $this->phpExcel->getActiveSheet()->setCellValue($columnName."1", $this->convertKeyToValue($keys[$index]));
+               }
 
                if (!is_array($values[$index])) {
                   //echo 'value of '.$keys[$index].' is '.$values[$index].'<br/>';
@@ -288,13 +297,25 @@ class Parser {
                   $this->phpExcel->getActiveSheet()->setCellValue($cellName, $this->convertKeyToValue($values[$index]));
                } 
                else {//if values is an array
-                  if (sizeof($values[$index] > 0)) {
-                     //echo 'value of '.$keys[$index].' is an array<br/>';
+                  if (sizeof($values[$index]) > 0) {
                      $this->logHandler->log(4, $this->TAG, 'value of '.$keys[$index].' is an array');
-                     $this->phpExcel->getActiveSheet()->setCellValue($cellName, "Check " . $keys[$index] . " sheet");
-                     foreach ($values[$index] as $childJsonObject) {
-                        $this->createSheetRow($childJsonObject, $keys[$index], $parentKey." (".$cellName.")");
+                     
+                     $testChild = $values[$index][0];
+                     if ($this->isJson($testChild) === TRUE) {
+                        $this->phpExcel->getActiveSheet()->setCellValue($cellName, "Check " . $keys[$index] . " sheet");
+                        foreach ($values[$index] as $childJsonObject) {
+                           $this->createSheetRow($childJsonObject, $keys[$index], $parentKey . " (" . $cellName . ")");
+                        }
                      }
+                     else{
+                        $commaSeparatedString = "";
+                        foreach ($values[$index] as $childString){
+                           if($commaSeparatedString === "") $commaSeparatedString = $this->convertKeyToValue ($childString);
+                           else $commaSeparatedString = $commaSeparatedString . ", " . $this->convertKeyToValue ($childString);
+                        }
+                        $this->phpExcel->getActiveSheet()->setCellValue($cellName, $commaSeparatedString);
+                     }
+                        
                   }
                   else {
                      //echo 'value of '.$keys[$index].' is an array but is empty<br/>';
@@ -507,6 +528,16 @@ class Parser {
       //mail($_POST['email'], $emailSubject, $message, $headers);
       
       shell_exec('echo "'.$message.'"|'.$this->settings['mutt_bin'].' -F '.$this->settings['mutt_config'].' -s "'.$emailSubject.'" -- '.$_POST['email']);
+   }
+   
+   function isJson($json) {
+      $keys = array_keys($json);
+      if(sizeof($keys)>0){
+         return TRUE;
+      }
+      else{
+         return FALSE;
+      }
    }
 }
 
