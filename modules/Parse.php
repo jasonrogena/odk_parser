@@ -398,8 +398,10 @@ class Parser {
       $url = "http://".$_SERVER['HTTP_HOST'].$this->rootDirURI.$zipName;
       $emailSubject = "ODK Parser finished generating ".$_POST['fileName'];
       $message = "Hi ".$_POST['creator'].",\nODK Parser has finished generating ".$_POST['fileName'].".xlsx. You can download the file along with its companion images as a zip file from the following link ".$url." . This is an auto-generated email, please do not reply to it.";
-      $headers = "From: noreply@cgiar.org";
-      mail($_POST['email'], $emailSubject, $message, $headers);
+      //$headers = "From: noreply@cgiar.org";
+      //mail($_POST['email'], $emailSubject, $message, $headers);
+      
+      shell_exec('echo "'.$message.'"|'.$this->settings['mutt_bin'].' -F '.$this->settings['mutt_config'].' -s "'.$emailSubject.'" -- '.$_POST['email']);
    }
 }
 

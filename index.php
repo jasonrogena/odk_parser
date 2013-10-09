@@ -43,7 +43,7 @@
             </div>
          </div>
          <div class="controls">
-            <button id="generate_b" name="generate_b" onclick="return false" class="btn-primary">Generate</button>
+            <button id="generate_b" name="generate_b" onclick="return false;" class="btn-primary">Generate</button>
          </div>
       </form>
       <script>
