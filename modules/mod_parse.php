@@ -241,6 +241,7 @@ class Parser {
          if ($columnName != FALSE) {
             if($isNewSheet === TRUE){
                $this->phpExcel->getActiveSheet()->setCellValue($columnName."1", "Parent cell");
+               $this->phpExcel->getActiveSheet()->getStyle($columnName."1")->getFont()->setBold(TRUE);
             }
             $cellName = $columnName . $rowName;
             $this->phpExcel->getActiveSheet()->setCellValue($cellName, $parentCellName);
@@ -281,6 +282,7 @@ class Parser {
                
                if($columnExisted === FALSE){
                   $this->phpExcel->getActiveSheet()->setCellValue($columnName."1", $this->convertKeyToValue($keys[$index]));
+                  $this->phpExcel->getActiveSheet()->getStyle($columnName."1")->getFont()->setBold(TRUE);
                }
 
                if (!is_array($values[$index])) {
