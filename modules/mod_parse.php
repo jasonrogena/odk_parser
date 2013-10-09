@@ -1,21 +1,88 @@
 <?php
+/**
+ * The main class of the system. All other classes inherit from this main one
+ *
+ * @category   AVID
+ * @package    ODKParser
+ * @author     Jason Rogena <j.rogena@cgiar.org>
+ * @since      v0.1
+ */
 error_reporting(E_ALL);
 
 class Parser {
+   /**
+    * @var string    Tag to be used in logging
+    */
    private $TAG = "Parse.php";
+   
+   /**
+    * @var string       Relative path to the root of this project
+    */
    private $ROOT = "../";
+   
+   /**
+    * @var LogHandler   Object to handle all the logging
+    */
    private $logHandler;
+   
+   /**
+    * @var assoc_array  Associative array containig settings to be used by this file
+    */
    private $settings;
+   
+   /**
+    * @var PhpExcel     A place holder for the last error that occured. Useful for sending data back to the user
+    */
    private $phpExcel;
+   
+   /**
+    * @var Json         Json object parsed from the json string gotten from post
+    */
    private $jsonObject;
+   
+   /**
+    * @var  array       array containig indexes of all excel sheets created by this object
+    */
    private $sheetIndexes;
+   
+   /**
+    * @var array        Associative array containing all column names in all excel sheets in the format [sheet_name][column_index]
+    */
    private $allColumnNames;
+   
+   /**
+    * @var array        Associative array containing the name of the next row in each excel sheet
+    */
    private $nextRowName;
+   
+   /**
+    * @var string       Relative path where all images will be downloaded to for the current excel file
+    */
    private $imagesDir;
+   
+   /**
+    * @var string       Relative path to where all downloads in this project are put
+    */
    private $downloadDir;
+   
+   /**
+    * @var string       ID for this php session
+    */
    private $sessionID;
+   
+   /**
+    * @var string       XML string gotten from last post request
+    */
    private $xmlString;
+   
+   /**
+    * @var array       Associative array of keys and values for strings gotten from the XML string  
+    */
    private $xmlValues;
+   
+   /**
+    * @var string      URI to where exactly the project is in apache
+    */
    private $rootDirURI;
    
    public function __construct() {
@@ -44,7 +111,8 @@ class Parser {
       $this->downloadDir = $this->ROOT.'download/'.$this->sessionID;
       $this->xmlValues = array();
       
-      $this->rootDirURI = "/~jason/ilri/ODKParser/";
+      //$this->rootDirURI = "/~jason/ilri/ODKParser/";
+      $this->rootDirURI = $this->settings['root_uri'];
       
       //parse json String
       $this->parseJson();
